@@ -260,12 +260,80 @@ custom Frappe app per country plus adapter services.)
 A minimal but correct relational model (names illustrative):
 
 ### 7.1 Accounting
+
+**The five account types (the Chart of Accounts foundation).** Every account in
+the system belongs to exactly one of these five fundamental categories, which
+together satisfy the **accounting equation**:
+
+```
+   ASSETS  =  LIABILITIES  +  CAPITAL (EQUITY)
+                              └─ increased by INCOME, decreased by EXPENSES
+   →  Assets = Liabilities + Capital + (Income − Expenses)
+```
+
+| # | Type | Normal balance | Increases on | What it holds | Statement |
+|---|------|----------------|--------------|----------------|-----------|
+| 1 | **Asset** | Debit | Debit | Cash, bank, accounts receivable, **inventory**, fixed assets, prepayments, input VAT | Balance Sheet |
+| 2 | **Liability** | Credit | Credit | Accounts payable, **output VAT / sales tax payable**, withholding tax payable, loans, accruals | Balance Sheet |
+| 3 | **Capital / Equity** | Credit | Credit | Owner's capital, share capital, retained earnings, current-year result | Balance Sheet |
+| 4 | **Income / Revenue** | Credit | Credit | Sales of goods/services, other income, FX gains | Profit & Loss |
+| 5 | **Expense** | Debit | Debit | COGS, salaries, rent, utilities, FX losses, depreciation | Profit & Loss |
+
+Income and Expense are **temporary** accounts: at period/year close their net
+(profit or loss) is rolled into **Capital/Equity** (retained earnings). Assets,
+Liabilities and Capital are **permanent** and carry forward.
+
+These five types drive: the **normal-balance / posting rules**, the **financial
+statements** (types 1–3 → Balance Sheet, types 4–5 → P&L), and the **closing**
+process. Sub-types (e.g. current vs. non-current asset, direct vs. indirect
+expense) are modelled as a `subtype` for reporting, but the five top-level types
+are fixed.
+
+**Data model:**
 - `company(id, name, country_code, base_currency, fiscal_year_start, tax_ids…)`
-- `account(id, company_id, code, name, type[asset/liability/equity/income/expense], parent_id)`
+- `account(id, company_id, code, name, type[asset/liability/equity/income/expense], subtype, parent_id, normal_balance, is_group)`
+  - Hierarchical (groups + ledger accounts) so the **Chart of Accounts** can be
+    a tree; the country pack ships a starter CoA template per jurisdiction.
 - `journal_entry(id, company_id, date, period_id, source_doc, status[draft/posted/void])`
 - `journal_line(id, entry_id, account_id, debit, credit, currency, fx_rate, party_id?)`
   - **Invariant:** `Σ debit = Σ credit` per entry (enforced in domain + DB check).
 - `accounting_period(id, company_id, start, end, status[open/closed])`
+
+**Starter Chart of Accounts (illustrative, abbreviated):**
+
+```
+1000  ASSETS
+  1100  Current Assets
+    1110  Cash in Hand
+    1120  Bank Accounts
+    1130  Accounts Receivable (AR)
+    1140  Inventory / Stock
+    1150  Input VAT / Sales Tax Receivable
+  1500  Non-Current Assets (Fixed Assets, less Accum. Depreciation)
+2000  LIABILITIES
+  2100  Current Liabilities
+    2110  Accounts Payable (AP)
+    2120  Output VAT / Sales Tax Payable
+    2130  Withholding Tax Payable      (esp. Pakistan)
+  2500  Non-Current Liabilities (Loans)
+3000  CAPITAL / EQUITY
+  3100  Owner's / Share Capital
+  3200  Retained Earnings
+  3300  Current Year Result
+4000  INCOME
+  4100  Sales – Goods
+  4200  Sales – Services
+  4900  Other Income / FX Gain
+5000  EXPENSES
+  5100  Cost of Goods Sold (COGS)
+  5200  Operating Expenses (Salaries, Rent, Utilities…)
+  5900  FX Loss / Other
+```
+
+The **account-code ranges above (1xxx–5xxx) map one-to-one to the five types**,
+which is what makes report generation and the trial balance trivial. Tax
+accounts (input/output VAT, withholding) are deliberately surfaced because they
+are where the **UAE VAT** and **Pakistan sales-tax + withholding** flows post.
 
 ### 7.2 Master data
 - `party(id, company_id, type[customer/supplier], name, tax_reg_no, country, currency, terms)`
