@@ -236,22 +236,31 @@ Key principles:
 
 ---
 
-## 6. Suggested technology stack (for a custom build, Option B/C)
+## 6. Technology stack — **DECIDED**
+
+**Decision (2026-06-06): Option B — custom build on a Python backend.**
+The stack below is locked for implementation.
 
 | Layer | Choice | Why |
 |-------|--------|-----|
-| Language/runtime | **TypeScript (Node)** or **Python** | Strong ecosystems, hiring, libraries |
-| Backend framework | NestJS (TS) / Django or FastAPI (Py) | Modular, batteries-included, RBAC-friendly |
-| Database | **PostgreSQL** | ACID, strong constraints, `numeric` for money, partitioning, RLS for multi-tenant |
-| Money type | `NUMERIC(precision,scale)` + integer-minor-units in code | **Never floats** for money |
-| Queue/worker | Redis + BullMQ / Celery | Async fiscalization, retries, scheduling |
-| Frontend | **React / Next.js** + i18n lib | RTL support for Arabic/Urdu |
-| Auth | OAuth2/OIDC (Keycloak/Auth0) + app RBAC | SSO + fine-grained roles |
-| Reporting | SQL views + a reporting lib; PDF via headless renderer | Statements, invoices, QR labels |
-| Infra | Docker + a managed Postgres; IaC | Reproducible, multi-region option |
+| Backend framework | **Django + Django REST Framework (Python)** | Finance is model-heavy CRUD: batteries-included ORM, **migrations**, transactional integrity (`atomic`, `select_for_update`), built-in **auth/permissions** (RBAC), and a free **admin** for back-office. DRF gives a clean REST API + OpenAPI schema. |
+| Database | **PostgreSQL** | ACID, `NUMERIC` for money, **check constraints** (enforce `Σdebit = Σcredit`), row-level security for multi-company, partitioning. |
+| Money type | Python **`Decimal`** + `NUMERIC(precision,scale)` columns | **Never floats** for money. |
+| Async / queue | **Celery + Redis** | e-Invoice submission (FBR/ASP) as **idempotent, retried** background tasks with dead-letter for manual review. |
+| Frontend | **React / Next.js** + i18next | RTL support for **Arabic & Urdu**. |
+| Auth | Django auth + OIDC (Keycloak optional) | SSO + fine-grained roles, maker-checker. |
+| Reporting | SQL views + DRF endpoints; PDF via headless renderer (e.g. WeasyPrint/Playwright) | Statements, invoices, QR labels. |
+| Infra | **Docker Compose** → managed Postgres; IaC | Reproducible local + prod parity. |
 
-(If Option A/ERPNext: stack is **Frappe/ERPNext (Python + MariaDB)**; we add a
-custom Frappe app per country plus adapter services.)
+**Why Django over FastAPI:** a double-entry system is dominated by related
+models, migrations, transactional posting, and admin/back-office needs — all
+Django strengths. FastAPI is leaner/async-first but we'd hand-assemble the ORM,
+migrations, admin and auth. If a high-throughput async endpoint is later needed,
+add a small FastAPI/ASGI service beside Django rather than starting there.
+
+> Considered and not chosen: **Option A (extend ERPNext, Python+Frappe+MariaDB)**
+> — fastest to compliance/lowest budget but constrains us to the Frappe data
+> model; **TypeScript/NestJS** — fine, but the team prefers Python.
 
 ---
 
