@@ -31,8 +31,9 @@ class FBRAdapter(FiscalizationAdapter):
                 "salesTaxApplicable": self._money(line.tax_amount),
                 "rate": f"{(line.tax_code.rate if line.tax_code else 0)}%",
             })
+        kind = getattr(invoice, "document_kind", "invoice")
         doc = {
-            "invoiceType": "Sale Invoice",
+            "invoiceType": "Credit Note" if kind == "credit_note" else "Sale Invoice",
             "invoiceDate": str(invoice.date),
             "sellerNTNCNIC": company.tax_registration_number,
             "sellerBusinessName": company.name,

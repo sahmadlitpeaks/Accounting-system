@@ -54,6 +54,13 @@ class Command(BaseCommand):
                           "input_account": get_account(company, "1150")},
             )
 
+            # Pakistan: a supplier withholding-tax code (income tax deducted at source).
+            if company.country_code == "PK":
+                TaxCode.objects.get_or_create(
+                    company=company, name="PK WHT 4%",
+                    defaults={"kind": TaxCode.Kind.WITHHOLDING, "rate": Decimal("4")},
+                )
+
             AccountingPeriod.objects.get_or_create(
                 company=company, name=f"{date.today():%Y-%m}",
                 defaults={"start_date": date.today().replace(day=1), "end_date": date.today()},

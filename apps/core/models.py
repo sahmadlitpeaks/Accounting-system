@@ -53,6 +53,23 @@ class Company(TimeStampedModel):
         return f"{self.name} ({self.country_code})"
 
 
+class DocumentSequence(TimeStampedModel):
+    """Per-company, per-year, per-document-type gapless counter for statutory
+    numbering (e.g. INV-2026-000001). Allocated under a row lock."""
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="sequences")
+    doc_type = models.CharField(max_length=40)  # customer_invoice, supplier_bill, credit_note...
+    year = models.PositiveIntegerField()
+    prefix = models.CharField(max_length=12, default="DOC")
+    last_number = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ("company", "doc_type", "year")
+
+    def __str__(self):
+        return f"{self.company_id}:{self.doc_type}:{self.year}={self.last_number}"
+
+
 class ExchangeRate(TimeStampedModel):
     """Rate to convert ``from_currency`` -> ``to_currency`` on a given date.
 

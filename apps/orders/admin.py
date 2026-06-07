@@ -1,6 +1,8 @@
 from django.contrib import admin
 
 from .models import (
+    CustomerCreditNote,
+    CustomerCreditNoteLine,
     CustomerInvoice,
     CustomerInvoiceLine,
     Payment,
@@ -59,6 +61,18 @@ class SupplierBillAdmin(admin.ModelAdmin):
     list_display = ("id", "number", "company", "party", "date", "grand_total", "status")
     list_filter = ("status", "company")
     inlines = [SupplierBillLineInline]
+
+
+class CustomerCreditNoteLineInline(admin.TabularInline):
+    model = CustomerCreditNoteLine
+    extra = 0
+
+
+@admin.register(CustomerCreditNote)
+class CustomerCreditNoteAdmin(admin.ModelAdmin):
+    list_display = ("id", "number", "company", "party", "invoice", "date", "grand_total", "fiscal_status")
+    list_filter = ("status", "fiscal_status", "company")
+    inlines = [CustomerCreditNoteLineInline]
 
 
 @admin.register(Payment)

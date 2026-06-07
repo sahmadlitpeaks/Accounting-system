@@ -16,7 +16,9 @@ class EInvoiceSubmission(TimeStampedModel):
         FAILED = "failed", "Failed"
 
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="einvoice_submissions")
-    invoice = models.ForeignKey("orders.CustomerInvoice", on_delete=models.CASCADE, related_name="submissions")
+    # Generic reference so invoices and credit notes both fiscalize.
+    document_type = models.CharField(max_length=40, default="customer_invoice")
+    document_id = models.CharField(max_length=40, default="")
     country = models.CharField(max_length=2)
     adapter = models.CharField(max_length=40)
     status = models.CharField(max_length=8, choices=Status.choices, default=Status.PENDING)
@@ -30,4 +32,15 @@ class EInvoiceSubmission(TimeStampedModel):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.country} sub for INV#{self.invoice_id} [{self.status}]"
+        return f"{self.country} sub for {self.document_type}#{self.document_id} [{self.status}]"
+
+    def load_document(self):
+        from django.apps import apps
+
+        registry = {
+            "customer_invoice": ("orders", "CustomerInvoice"),
+            "customer_credit_note": ("orders", "CustomerCreditNote"),
+        }
+        app_label, model_name = registry[self.document_type]
+        model = apps.get_model(app_label, model_name)
+        return model.objects.get(pk=self.document_id)

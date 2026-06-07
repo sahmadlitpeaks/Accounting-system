@@ -47,6 +47,7 @@ _COMMON = [
     ("5210", "Salaries & Wages", EXP, False, "5200"),
     ("5220", "Rent", EXP, False, "5200"),
     ("5230", "Utilities", EXP, False, "5200"),
+    ("5240", "Other Operating Expenses", EXP, False, "5200"),
     ("5900", "Other Expense / FX Loss", EXP, False, "5000"),
 ]
 

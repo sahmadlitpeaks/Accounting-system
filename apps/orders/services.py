@@ -11,12 +11,15 @@ from decimal import Decimal
 from django.db import transaction
 
 from apps.accounting.services import EntryInput, LineInput, get_account, post_entry
+from apps.core.sequences import next_number
 from apps.inventory.services import issue_stock, receive_stock
 from apps.masterdata.models import Item
 from apps.tax.services import line_tax
 
 from .models import (
     ZERO,
+    CustomerCreditNote,
+    CustomerCreditNoteLine,
     CustomerInvoice,
     CustomerInvoiceLine,
     DocumentStatus,
@@ -85,7 +88,8 @@ def invoice_sales_order(order: SalesOrder, number: str = "") -> CustomerInvoice:
     invoice = CustomerInvoice.objects.create(
         company=order.company, party=order.party, sales_order=order,
         date=order.date, currency=order.currency, fx_rate=order.fx_rate,
-        number=number, status=DocumentStatus.CONFIRMED,
+        number=number or next_number(order.company, "customer_invoice", order.date),
+        status=DocumentStatus.CONFIRMED,
     )
     for line in order.lines.select_related("item", "tax_code"):
         net = _q2(line.quantity * line.unit_price)
@@ -189,13 +193,18 @@ def receive_purchase_order(order: PurchaseOrder):
 
 
 @transaction.atomic
-def bill_purchase_order(order: PurchaseOrder, number: str = "") -> SupplierBill:
+def bill_purchase_order(order: PurchaseOrder, number: str = "", withholding_tax_code=None) -> SupplierBill:
     """Create a supplier bill: clear GRNI for stock, expense services, add input
-    tax, credit AP (Dr 2140/5xxx + Dr 1150 / Cr 2110)."""
+    tax, deduct any withholding tax, credit AP.
+
+      Dr 2140/5xxx (net) + Dr 1150 (input tax)
+      Cr 2110 AP (net + tax - WHT)  +  Cr 2130 WHT payable (WHT)
+    """
     bill = SupplierBill.objects.create(
         company=order.company, party=order.party, purchase_order=order,
         date=order.date, currency=order.currency, fx_rate=order.fx_rate,
-        number=number, status=DocumentStatus.CONFIRMED,
+        number=number or next_number(order.company, "supplier_bill", order.date),
+        withholding_tax_code=withholding_tax_code, status=DocumentStatus.CONFIRMED,
     )
     net_total = ZERO
     tax_total = ZERO
@@ -211,24 +220,33 @@ def bill_purchase_order(order: PurchaseOrder, number: str = "") -> SupplierBill:
         net_total += net
         tax_total += tax
         # Stock lines clear GRNI (already in inventory); others go to expense.
-        code = "2140" if line.item.kind == Item.Kind.STOCK else "5200"
+        code = "2140" if line.item.kind == Item.Kind.STOCK else "5240"
         acc = get_account(order.company, code)
         debit_by_account[acc] = debit_by_account.get(acc, ZERO) + net
         if tax > 0:
             tax_acc = (line.tax_code.input_account_id and line.tax_code.input_account) or get_account(order.company, "1150")
             debit_by_account[tax_acc] = debit_by_account.get(tax_acc, ZERO) + tax
 
+    # Withholding tax is computed on the net (tax-exclusive) amount.
+    wht = line_tax(net_total, withholding_tax_code) if withholding_tax_code else ZERO
     grand = _q2(net_total + tax_total)
     bill.net_total = _q2(net_total)
     bill.tax_total = _q2(tax_total)
+    bill.withholding_total = _q2(wht)
     bill.grand_total = grand
 
     lines = [
         LineInput(account=acc, debit=_q2(amt), currency=bill.currency, fx_rate=bill.fx_rate)
         for acc, amt in debit_by_account.items()
     ]
+    if wht > 0:
+        lines.append(LineInput(
+            account=get_account(order.company, "2130"), credit=_q2(wht),
+            currency=bill.currency, fx_rate=bill.fx_rate,
+            description="Withholding tax payable",
+        ))
     lines.append(LineInput(
-        account=get_account(order.company, "2110"), credit=grand,
+        account=get_account(order.company, "2110"), credit=_q2(grand - wht),
         currency=bill.currency, fx_rate=bill.fx_rate, party=bill.party,
         description=f"AP {bill.party.name}",
     ))
@@ -242,6 +260,108 @@ def bill_purchase_order(order: PurchaseOrder, number: str = "") -> SupplierBill:
     order.status = DocumentStatus.INVOICED
     order.save(update_fields=["status"])
     return bill
+
+
+# --------------------------------------------------------------------------- #
+# Credit notes (sales returns / corrections)
+# --------------------------------------------------------------------------- #
+@transaction.atomic
+def create_credit_note(invoice: CustomerInvoice, lines=None, reason: str = "",
+                       restock: bool = True, number: str = "") -> CustomerCreditNote:
+    """Issue a credit note against ``invoice``. Reverses revenue/output-tax/AR,
+    optionally restocks returned goods, and fiscalizes the credit note.
+
+    ``lines`` may be a list of dicts {item, quantity, unit_price, tax_code} for a
+    partial credit; if omitted, every invoice line is fully credited.
+    """
+    cn = CustomerCreditNote.objects.create(
+        company=invoice.company, party=invoice.party, invoice=invoice,
+        date=invoice.date, currency=invoice.currency, fx_rate=invoice.fx_rate,
+        number=number or next_number(invoice.company, "customer_credit_note", invoice.date),
+        reason=reason, restock=restock, status=DocumentStatus.CONFIRMED,
+    )
+
+    if lines is None:
+        source = [
+            {"item": ln.item, "quantity": ln.quantity, "unit_price": ln.unit_price, "tax_code": ln.tax_code}
+            for ln in invoice.lines.select_related("item", "tax_code")
+        ]
+    else:
+        source = lines
+
+    net_total = ZERO
+    tax_total = ZERO
+    revenue_by_code: dict = {}
+    tax_by_account: dict = {}
+    restock_cost = ZERO
+
+    for ln in source:
+        net = _q2(ln["quantity"] * ln["unit_price"])
+        tax_code = ln.get("tax_code")
+        tax = line_tax(net, tax_code)
+        CustomerCreditNoteLine.objects.create(
+            credit_note=cn, item=ln["item"], description=ln["item"].name,
+            quantity=ln["quantity"], unit_price=ln["unit_price"],
+            tax_code=tax_code, net_amount=net, tax_amount=tax,
+        )
+        net_total += net
+        tax_total += tax
+        rev_code = _revenue_code(ln["item"])
+        revenue_by_code[rev_code] = revenue_by_code.get(rev_code, ZERO) + net
+        if tax > 0:
+            tax_acc = (tax_code.output_account_id and tax_code.output_account) or get_account(invoice.company, "2120")
+            tax_by_account[tax_acc] = tax_by_account.get(tax_acc, ZERO) + tax
+        if restock and ln["item"].kind == Item.Kind.STOCK:
+            cost = _q2(ln["quantity"] * ln["item"].standard_cost)
+            if cost > 0 and invoice.sales_order and invoice.sales_order.warehouse:
+                receive_stock(
+                    company=invoice.company, item=ln["item"],
+                    warehouse=invoice.sales_order.warehouse,
+                    quantity=ln["quantity"], unit_cost=ln["item"].standard_cost,
+                    date=invoice.date, source_type="customer_credit_note", source_id=cn.pk,
+                )
+                restock_cost += cost
+
+    grand = _q2(net_total + tax_total)
+    cn.net_total = _q2(net_total)
+    cn.tax_total = _q2(tax_total)
+    cn.grand_total = grand
+
+    # Reverse the original sale: Dr Revenue + Dr Output tax / Cr AR.
+    gl_lines = [LineInput(
+        account=get_account(invoice.company, code), debit=_q2(amount),
+        currency=cn.currency, fx_rate=cn.fx_rate,
+    ) for code, amount in revenue_by_code.items()]
+    for tax_acc, amount in tax_by_account.items():
+        gl_lines.append(LineInput(account=tax_acc, debit=_q2(amount), currency=cn.currency, fx_rate=cn.fx_rate))
+    gl_lines.append(LineInput(
+        account=get_account(invoice.company, "1130"), credit=grand,
+        currency=cn.currency, fx_rate=cn.fx_rate, party=cn.party,
+        description=f"Credit note {cn.number}",
+    ))
+    entry = post_entry(EntryInput(
+        company=invoice.company, date=cn.date,
+        memo=f"Credit note {cn.number} (inv {invoice.number})",
+        source_type="customer_credit_note", source_id=cn.pk, lines=gl_lines,
+    ))
+    cn.journal_entry = entry
+    cn.save()
+
+    # Restock returned goods back into inventory at standard cost: Dr 1140 / Cr 5100.
+    if restock_cost > 0:
+        post_entry(EntryInput(
+            company=invoice.company, date=cn.date,
+            memo=f"Restock for credit note {cn.number}",
+            source_type="customer_credit_note", source_id=cn.pk,
+            lines=[
+                LineInput(account=get_account(invoice.company, "1140"), debit=restock_cost),
+                LineInput(account=get_account(invoice.company, "5100"), credit=restock_cost),
+            ],
+        ))
+
+    from apps.compliance.services import submit_document
+    submit_document(cn, "customer_credit_note")
+    return cn
 
 
 # --------------------------------------------------------------------------- #
