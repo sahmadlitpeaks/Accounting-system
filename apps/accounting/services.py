@@ -53,6 +53,7 @@ class EntryInput:
     reference: str = ""
     source_type: str = ""
     source_id: str = ""
+    reversal_of: object = None
 
 
 def _q(value: Decimal) -> Decimal:
@@ -114,6 +115,7 @@ def post_entry(data: EntryInput) -> JournalEntry:
         source_type=data.source_type,
         source_id=str(data.source_id),
         status=JournalEntry.Status.POSTED,
+        reversal_of=data.reversal_of,
     )
     JournalLine.objects.bulk_create(
         [
@@ -152,7 +154,7 @@ def reverse_entry(entry: JournalEntry, on_date=None, memo: str = "") -> JournalE
         )
         for line in entry.lines.all()
     ]
-    reversal = post_entry(
+    return post_entry(
         EntryInput(
             company=entry.company,
             date=on_date or entry.date,
@@ -160,11 +162,9 @@ def reverse_entry(entry: JournalEntry, on_date=None, memo: str = "") -> JournalE
             memo=memo or f"Reversal of JE#{entry.pk}",
             source_type=entry.source_type,
             source_id=entry.source_id,
+            reversal_of=entry,
         )
     )
-    reversal.reversal_of = entry
-    reversal.save(update_fields=["reversal_of"])
-    return reversal
 
 
 def trial_balance(company, as_of=None) -> list:

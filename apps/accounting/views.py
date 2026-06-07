@@ -26,6 +26,39 @@ class AccountViewSet(viewsets.ModelViewSet):
 class AccountingPeriodViewSet(viewsets.ModelViewSet):
     queryset = AccountingPeriod.objects.all()
     serializer_class = AccountingPeriodSerializer
+    filterset_fields = ["company", "status"]
+
+    @action(detail=True, methods=["post"])
+    def close(self, request, pk=None):
+        from .closing import close_period
+        from .services import PostingError
+
+        try:
+            close_period(self.get_object())
+        except PostingError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response({"status": "closed"})
+
+    @action(detail=True, methods=["post"])
+    def reopen(self, request, pk=None):
+        from .closing import reopen_period
+
+        reopen_period(self.get_object())
+        return Response({"status": "open"})
+
+    @action(detail=False, methods=["post"], url_path="close-year")
+    def close_year(self, request):
+        from apps.core.models import Company
+
+        from .closing import close_year
+        from .serializers import JournalEntrySerializer
+
+        data = request.data
+        company = Company.objects.get(pk=data["company"])
+        entry = close_year(company, data["start"], data["end"])
+        if entry is None:
+            return Response({"detail": "nothing to close"})
+        return Response(JournalEntrySerializer(entry).data, status=201)
 
 
 class JournalEntryViewSet(viewsets.ReadOnlyModelViewSet):
