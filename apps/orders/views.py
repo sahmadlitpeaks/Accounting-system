@@ -93,6 +93,18 @@ class CustomerInvoiceViewSet(CompanyScopedQuerysetMixin, viewsets.ReadOnlyModelV
     serializer_class = CustomerInvoiceSerializer
     filterset_fields = ["company", "status", "fiscal_status"]
 
+    @action(detail=True, methods=["get"])
+    def pdf(self, request, pk=None):
+        from django.http import HttpResponse
+
+        from .pdf import render_invoice_pdf
+
+        invoice = self.get_object()
+        content = render_invoice_pdf(invoice)
+        resp = HttpResponse(content, content_type="application/pdf")
+        resp["Content-Disposition"] = f'inline; filename="{invoice.number or invoice.pk}.pdf"'
+        return resp
+
 
 class SupplierBillViewSet(CompanyScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = SupplierBill.objects.prefetch_related("lines").all()

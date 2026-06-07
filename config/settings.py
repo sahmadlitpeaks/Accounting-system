@@ -113,6 +113,22 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 50,
 }
 
+# Fiscalization / e-invoicing providers. When an endpoint is configured the
+# adapter POSTs to the real ASP (UAE) / licensed integrator (Pakistan); when
+# blank it runs the built-in sandbox simulation. Credentials come from secrets.
+FISCALIZATION = {
+    "AE": {
+        "endpoint": env("UAE_ASP_ENDPOINT", default=""),
+        "api_key": env("UAE_ASP_API_KEY", default=""),
+        "timeout": env.int("FISCALIZATION_TIMEOUT", default=20),
+    },
+    "PK": {
+        "endpoint": env("FBR_ENDPOINT", default=""),
+        "api_key": env("FBR_API_KEY", default=""),
+        "timeout": env.int("FISCALIZATION_TIMEOUT", default=20),
+    },
+}
+
 # Celery — async, retried e-invoicing / fiscalization.
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = env("REDIS_URL", default="redis://localhost:6379/0")

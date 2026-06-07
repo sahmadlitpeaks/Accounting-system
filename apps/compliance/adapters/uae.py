@@ -49,8 +49,25 @@ class UAEPeppolAdapter(FiscalizationAdapter):
         )
 
     def submit(self, invoice) -> SubmissionResult:
+        import json
+
+        from ..http_client import is_live, post_json
+
         payload = self.build(invoice)
-        # --- Real integration point: POST `payload` to the ASP's Peppol API. ---
+        if is_live(self.country):
+            # Live: POST PINT AE XML to the accredited service provider (Peppol).
+            data = post_json(self.country, payload, content_type="application/xml")
+            peppol_id = data.get("transmissionId") or data.get("documentId", "")
+            reported = str(data.get("status", "")).lower() in ("reported", "accepted", "success")
+            return SubmissionResult(
+                success=reported and bool(peppol_id),
+                external_id=peppol_id,
+                peppol_id=peppol_id,
+                qr_payload=peppol_id,
+                request_payload=payload,
+                response_payload=json.dumps(data),
+                error="" if reported else f"ASP rejected: {data.get('status')}",
+            )
         # Sandbox: simulate a successful transmission + FTA reporting ack.
         peppol_id = f"PEPPOL-AE-{uuid.uuid4().hex[:16].upper()}"
         return SubmissionResult(
