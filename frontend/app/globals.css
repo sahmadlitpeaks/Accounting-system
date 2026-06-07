@@ -1,0 +1,56 @@
+:root {
+  --bg: #f4f6f9;
+  --card: #ffffff;
+  --ink: #1f2d3d;
+  --muted: #6b7a90;
+  --brand: #1f3b57;
+  --accent: #2f80ed;
+  --line: #e3e8ef;
+  --good: #1f9d55;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+a { color: var(--accent); text-decoration: none; }
+
+.container { max-width: 1080px; margin: 0 auto; padding: 24px; }
+
+.topbar {
+  background: var(--brand); color: #fff; padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.topbar .brand { font-weight: 700; font-size: 18px; }
+.topbar select, .topbar button {
+  background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 8px; padding: 6px 10px;
+}
+
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px; margin-bottom: 18px;
+}
+.card h2 { margin: 0 0 12px; font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.kpi { font-size: 28px; font-weight: 700; }
+.kpi.good { color: var(--good); }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: start; }
+th { color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
+
+.login-wrap { min-height: 100vh; display: grid; place-items: center; }
+.login { width: 340px; }
+.login input { width: 100%; padding: 10px; margin: 6px 0 14px; border: 1px solid var(--line); border-radius: 8px; }
+.btn { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer; width: 100%; }
+.err { color: #c0392b; font-size: 13px; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eef4ff; color: var(--accent); }
+.badge.cleared { background: #e7f7ee; color: var(--good); }
