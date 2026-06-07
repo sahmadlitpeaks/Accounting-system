@@ -38,8 +38,18 @@ apps/
 - [x] **M7 — Compliance:** `FiscalizationAdapter` interface; **UAE** (PINT AE /
       ASP) and **Pakistan** (FBR real-time clearance) adapters (sandbox stubs);
       `EInvoiceSubmission` state machine; Celery submission task.
-- [ ] **M8 — Reporting & hardening:** financial statements (P&L, Balance Sheet),
-      audit log review, security pass. *(future)*
+- [x] **M8 — Reporting:** financial statements (P&L, Balance Sheet) and AR/AP
+      aging, derived from the account-type structure.
+- [x] **M9 — Corrections & numbering:** customer credit notes (returns/
+      corrections, fiscalized), gapless per-company/year document numbering,
+      supplier withholding tax.
+- [x] **M10 — Close & immutability:** period close/reopen, year-end close into
+      retained earnings, posted-entry immutability (reversals only).
+- [x] **M11 — Access control & audit:** users/roles (Membership), company-scoped
+      data isolation, capability checks, maker-checker on payments, append-only
+      audit log.
+- [ ] **M12 — Frontend & live integrations:** Next.js UI (Arabic/Urdu RTL),
+      invoice PDF + QR, and real ASP / FBR integrator clients. *(future)*
 
 ## Cross-cutting rules
 

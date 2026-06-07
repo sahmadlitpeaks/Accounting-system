@@ -6,6 +6,7 @@ Settlement: Payment (cash/bank vs AR/AP)
 """
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import models
 
 from apps.core.models import Company, Currency, TimeStampedModel
@@ -221,6 +222,11 @@ class Payment(TimeStampedModel):
         INBOUND = "in", "Inbound (from customer)"
         OUTBOUND = "out", "Outbound (to supplier)"
 
+    class Approval(models.TextChoices):
+        DRAFT = "draft", "Awaiting approval"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="payments")
     party = models.ForeignKey(Party, on_delete=models.PROTECT, related_name="payments")
     direction = models.CharField(max_length=3, choices=Direction.choices)
@@ -233,6 +239,12 @@ class Payment(TimeStampedModel):
     customer_invoice = models.ForeignKey(CustomerInvoice, null=True, blank=True, on_delete=models.SET_NULL, related_name="payments")
     supplier_bill = models.ForeignKey(SupplierBill, null=True, blank=True, on_delete=models.SET_NULL, related_name="payments")
     journal_entry = models.ForeignKey("accounting.JournalEntry", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    # Maker-checker: a payment is created by one user and approved (posted) by
+    # a different user (segregation of duties).
+    approval_status = models.CharField(max_length=8, choices=Approval.choices, default=Approval.DRAFT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
 
     def __str__(self):
         return f"PAY {self.direction} {self.amount} {self.currency_id}"

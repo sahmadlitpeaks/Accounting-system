@@ -2,6 +2,8 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.accounts.permissions import CompanyScopedQuerysetMixin
+
 from .models import CustomerInvoice, PurchaseOrder, SalesOrder, SupplierBill
 from .serializers import (
     CustomerInvoiceSerializer,
@@ -18,7 +20,7 @@ from .services import (
 )
 
 
-class SalesOrderViewSet(viewsets.ReadOnlyModelViewSet):
+class SalesOrderViewSet(CompanyScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = SalesOrder.objects.prefetch_related("lines").all()
     serializer_class = SalesOrderSerializer
     filterset_fields = ["company", "status"]
@@ -41,7 +43,7 @@ class SalesOrderViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(CustomerInvoiceSerializer(invoice).data, status=201)
 
 
-class PurchaseOrderViewSet(viewsets.ReadOnlyModelViewSet):
+class PurchaseOrderViewSet(CompanyScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = PurchaseOrder.objects.prefetch_related("lines").all()
     serializer_class = PurchaseOrderSerializer
     filterset_fields = ["company", "status"]
@@ -86,13 +88,13 @@ class ReportViewSet(viewsets.ViewSet):
         return Response(ap_aging(self._company(request), request.query_params.get("as_of")))
 
 
-class CustomerInvoiceViewSet(viewsets.ReadOnlyModelViewSet):
+class CustomerInvoiceViewSet(CompanyScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = CustomerInvoice.objects.prefetch_related("lines").all()
     serializer_class = CustomerInvoiceSerializer
     filterset_fields = ["company", "status", "fiscal_status"]
 
 
-class SupplierBillViewSet(viewsets.ReadOnlyModelViewSet):
+class SupplierBillViewSet(CompanyScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = SupplierBill.objects.prefetch_related("lines").all()
     serializer_class = SupplierBillSerializer
     filterset_fields = ["company", "status"]

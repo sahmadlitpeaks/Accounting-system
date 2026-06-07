@@ -367,6 +367,48 @@ def create_credit_note(invoice: CustomerInvoice, lines=None, reason: str = "",
 # --------------------------------------------------------------------------- #
 # Settlement
 # --------------------------------------------------------------------------- #
+def create_payment_request(*, company, party, direction, date, currency, amount,
+                           created_by, cash_account_code="1120", customer_invoice=None,
+                           supplier_bill=None, fx_rate=Decimal("1")) -> Payment:
+    """Maker step: record a payment awaiting approval. Does NOT post to the GL."""
+    from apps.accounts.access import require
+
+    require(created_by, company, "create_payment")
+    return Payment.objects.create(
+        company=company, party=party, direction=direction, date=date,
+        currency=currency, fx_rate=fx_rate, amount=amount,
+        cash_account_code=cash_account_code, customer_invoice=customer_invoice,
+        supplier_bill=supplier_bill, created_by=created_by,
+        approval_status=Payment.Approval.DRAFT,
+    )
+
+
+@transaction.atomic
+def approve_payment(payment: Payment, approver) -> Payment:
+    """Checker step: a *different* user with approval rights posts the payment.
+    Enforces segregation of duties."""
+    from apps.accounts.access import PermissionDenied, require
+
+    if payment.approval_status == Payment.Approval.APPROVED:
+        raise OrderError("Payment is already approved.")
+    require(approver, payment.company, "approve_payment")
+    if payment.created_by_id and approver.id == payment.created_by_id:
+        raise PermissionDenied("The approver must be different from the payment creator.")
+
+    payment.approved_by = approver
+    payment.approval_status = Payment.Approval.APPROVED
+    payment.save(update_fields=["approved_by", "approval_status"])
+    register_payment(payment)
+    return payment
+
+
+def reject_payment(payment: Payment, approver, reason: str = "") -> Payment:
+    payment.approval_status = Payment.Approval.REJECTED
+    payment.approved_by = approver
+    payment.save(update_fields=["approval_status", "approved_by"])
+    return payment
+
+
 @transaction.atomic
 def register_payment(payment: Payment):
     """Post a payment and update the related invoice/bill paid amount."""
