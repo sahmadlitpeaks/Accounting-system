@@ -48,8 +48,14 @@ apps/
 - [x] **M11 — Access control & audit:** users/roles (Membership), company-scoped
       data isolation, capability checks, maker-checker on payments, append-only
       audit log.
-- [ ] **M12 — Frontend & live integrations:** Next.js UI (Arabic/Urdu RTL),
-      invoice PDF + QR, and real ASP / FBR integrator clients. *(future)*
+- [x] **M12 — Frontend & live integrations:**
+      - Invoice / credit-note **PDF with statutory QR** (reportlab + qrcode).
+      - Fiscalization adapters POST to a **real ASP / FBR endpoint** when
+        configured (`settings.FISCALIZATION`), sandbox otherwise.
+      - **Next.js** UI (App Router, TypeScript): token login, company switcher,
+        KPIs, P&L / Balance Sheet, invoices + PDF, **English/Arabic/Urdu RTL**.
+- [ ] **Future:** bank reconciliation, FX revaluation, opening-balance import,
+      fixed assets / payroll / manufacturing.
 
 ## Cross-cutting rules
 

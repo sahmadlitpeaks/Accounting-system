@@ -58,6 +58,21 @@ Reporting: **P&L**, **Balance Sheet** (`/api/accounting/reports/`), **AR/AP agin
 earnings; posted entries are immutable (corrections via reversals / credit notes).
 Demo login after `seed_demo`: `admin` / `admin12345`.
 
+Invoices render to **PDF with a statutory QR** at
+`/api/orders/customer-invoices/<id>/pdf/`. Fiscalization adapters call a real
+ASP/FBR endpoint when configured in `settings.FISCALIZATION`, sandbox otherwise.
+
+### Frontend (Next.js)
+
+A Next.js UI lives in [`frontend/`](frontend/) — token login, company switcher,
+financial KPIs, P&L / Balance Sheet, invoices with PDF, and an
+**English / Arabic / Urdu** switcher with automatic **RTL**. See
+[`frontend/README.md`](frontend/README.md). Quick start:
+
+```bash
+cd frontend && cp .env.local.example .env.local && npm install && npm run dev
+```
+
 See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) for module status.
 
 ## Quick links
