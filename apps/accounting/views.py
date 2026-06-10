@@ -103,3 +103,12 @@ class ReportViewSet(viewsets.ViewSet):
             self._company(request),
             as_of=request.query_params.get("as_of"),
         ))
+
+    @action(detail=False, methods=["get"], url_path="tax-return")
+    def tax_return(self, request):
+        from apps.tax.reports import tax_return
+
+        params = request.query_params
+        if not all(k in params for k in ("company", "start", "end")):
+            return Response({"detail": "company, start and end query params required"}, status=400)
+        return Response(tax_return(self._company(request), params["start"], params["end"]))

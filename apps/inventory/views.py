@@ -33,3 +33,24 @@ class StockMoveViewSet(viewsets.ReadOnlyModelViewSet):
                 "stock_value": stock_value(item),
             }
         )
+
+    @action(detail=False, methods=["get"])
+    def valuation(self, request):
+        """Company-wide stock valuation: per-item quantity and remaining value."""
+        from decimal import Decimal
+
+        from django.db.models import Sum
+
+        from .models import StockValuationLayer
+
+        company = request.query_params.get("company")
+        if not company:
+            return Response({"detail": "company query param required"}, status=400)
+        rows = (
+            StockValuationLayer.objects.filter(company=company, remaining_qty__gt=0)
+            .values("item__sku", "item__name", "warehouse__code")
+            .annotate(quantity=Sum("remaining_qty"), value=Sum("remaining_value"))
+            .order_by("item__sku")
+        )
+        total = sum((r["value"] for r in rows), Decimal("0"))
+        return Response({"items": list(rows), "total_value": total})
