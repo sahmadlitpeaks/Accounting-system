@@ -50,6 +50,19 @@ export const api = {
   invoices: (company: number) => request<Paginated<Invoice>>(`/api/orders/customer-invoices/?company=${company}`),
   arAging: (company: number) => request<Aging>(`/api/orders/reports/ar-aging/?company=${company}`),
   invoicePdfUrl: (id: number) => `${API_BASE}/api/orders/customer-invoices/${id}/pdf/`,
+  // Master data for order forms.
+  parties: (company: number) => request<Paginated<PartyRef>>(`/api/masterdata/parties/?company=${company}&is_customer=true`),
+  items: (company: number) => request<Paginated<ItemRef>>(`/api/masterdata/items/?company=${company}`),
+  taxCodes: (company: number) => request<Paginated<TaxCodeRef>>(`/api/masterdata/tax-codes/?company=${company}`),
+  warehouses: (company: number) => request<Paginated<WarehouseRef>>(`/api/masterdata/warehouses/?company=${company}`),
+  // Sales order lifecycle.
+  salesOrders: (company: number) => request<Paginated<SalesOrder>>(`/api/orders/sales-orders/?company=${company}`),
+  createSalesOrder: (payload: NewSalesOrder) =>
+    request<SalesOrder>("/api/orders/sales-orders/", { method: "POST", body: JSON.stringify(payload) }),
+  deliverOrder: (id: number) =>
+    request<{ status: string }>(`/api/orders/sales-orders/${id}/deliver/`, { method: "POST" }),
+  invoiceOrder: (id: number) =>
+    request<Invoice>(`/api/orders/sales-orders/${id}/invoice/`, { method: "POST", body: JSON.stringify({}) }),
 };
 
 // --- Types -----------------------------------------------------------------
@@ -61,3 +74,13 @@ export interface ProfitAndLoss { income: StatementRow[]; expenses: StatementRow[
 export interface BalanceSheet { assets: StatementRow[]; liabilities: StatementRow[]; equity: StatementRow[]; total_assets: string; total_equity_and_liabilities: string; current_year_result: string; balances: boolean; }
 export interface Invoice { id: number; number: string; party: number; date: string; grand_total: string; status: string; fiscal_status: string; fbr_invoice_number: string; }
 export interface Aging { total: string; buckets: Record<string, string>; }
+export interface PartyRef { id: number; name: string; }
+export interface ItemRef { id: number; sku: string; name: string; sales_price: string; sales_tax_code: number | null; }
+export interface TaxCodeRef { id: number; name: string; rate: string; }
+export interface WarehouseRef { id: number; code: string; name: string; }
+export interface OrderLine { item: number; quantity: string; unit_price: string; tax_code: number | null; }
+export interface SalesOrder { id: number; party: number; date: string; status: string; lines: OrderLine[]; }
+export interface NewSalesOrder {
+  company: number; party: number; date: string; currency: string;
+  warehouse: number; lines: OrderLine[];
+}

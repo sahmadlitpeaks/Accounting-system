@@ -64,8 +64,18 @@ apps/
       - **Tax return summary**: output/input/net tax + WHT per period, by code.
       - **Stock valuation report**; **GitHub Actions CI** (backend tests +
         frontend build).
-- [ ] **Future:** fixed assets / payroll / manufacturing; UI forms for
-      creating orders end-to-end.
+- [x] **M14 — Final modules:**
+      - **Fixed assets** (`assets`): straight-line monthly depreciation
+        (idempotent), acquisition capitalisation, disposal gain/loss.
+      - **Payroll** (`payroll`): employees with data-driven withholding,
+        monthly runs (gross / WHT / net payable), salary payment.
+      - **Manufacturing** (`manufacturing`): BOMs + work orders consuming
+        components at valuation cost into finished goods.
+      - **Order creation end-to-end**: nested-line POST API + a frontend
+        Orders page (create -> deliver -> invoice) in en/ar/ur.
+      - Root URL serves an API index (no more bare-host 404).
+- [ ] **Future:** live ASP / FBR integrator connection (requires contracted
+      provider credentials; HTTP client + config already in place).
 
 ## Cross-cutting rules
 

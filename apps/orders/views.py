@@ -20,10 +20,18 @@ from .services import (
 )
 
 
-class SalesOrderViewSet(CompanyScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
+class SalesOrderViewSet(CompanyScopedQuerysetMixin, viewsets.ModelViewSet):
     queryset = SalesOrder.objects.prefetch_related("lines").all()
     serializer_class = SalesOrderSerializer
     filterset_fields = ["company", "status"]
+    # Orders are created and acted on; posted documents are corrected with
+    # credit notes, never edited or deleted.
+    http_method_names = ["get", "post", "head", "options"]
+
+    def get_serializer_class(self):
+        from .serializers import SalesOrderWriteSerializer
+
+        return SalesOrderWriteSerializer if self.action == "create" else SalesOrderSerializer
 
     @action(detail=True, methods=["post"])
     def deliver(self, request, pk=None):

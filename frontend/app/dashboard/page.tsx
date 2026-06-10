@@ -57,6 +57,7 @@ export default function Dashboard() {
       <div className="topbar">
         <span className="brand">{t("app")}</span>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <a href="/orders" style={{ color: "#fff" }}>{t("orders")}</a>
           <label>{t("company")}</label>
           <select value={company} onChange={(e) => setCompany(Number(e.target.value))}>
             <option value={1}>Gulf Trading LLC (AE)</option>

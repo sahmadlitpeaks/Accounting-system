@@ -53,6 +53,9 @@ Key API roots: `/api/accounting/`, `/api/masterdata/`, `/api/inventory/`,
 | `compliance` | Fiscalization adapters — **UAE PINT AE/Peppol** & **Pakistan FBR clearance** (sandbox), async via Celery |
 | `accounts` | Users, **roles & company-scoped access**, maker-checker on payments, append-only **audit log** |
 | `banking` | Bank statement import (CSV) + **auto reconciliation** against payments |
+| `assets` | Fixed assets: capitalisation, **straight-line depreciation**, disposal gain/loss |
+| `payroll` | Employees, monthly runs (gross / withholding / net payable), salary payment |
+| `manufacturing` | BOMs + work orders rolling component cost into finished goods |
 
 Reporting: **P&L**, **Balance Sheet** (`/api/accounting/reports/`), **AR/AP aging**
 (`/api/orders/reports/`). Period close & year-end close roll into retained
