@@ -409,20 +409,45 @@ def reject_payment(payment: Payment, approver, reason: str = "") -> Payment:
     return payment
 
 
+def _fx_diff_line(company, base_debits: Decimal, base_credits: Decimal):
+    """Return the gain/loss LineInput that balances an FX-affected entry.
+
+    Debit excess -> credit 4900 FX gain; credit excess -> debit 5900 FX loss.
+    """
+    diff = _q2(base_debits - base_credits)
+    if diff > 0:
+        return LineInput(account=get_account(company, "4900"), credit=diff,
+                         description="Realised FX gain")
+    if diff < 0:
+        return LineInput(account=get_account(company, "5900"), debit=-diff,
+                         description="Realised FX loss")
+    return None
+
+
 @transaction.atomic
 def register_payment(payment: Payment):
     """Post a payment and update the related invoice/bill paid amount."""
     cash = get_account(payment.company, payment.cash_account_code)
     if payment.direction == Payment.Direction.INBOUND:
         ar = get_account(payment.company, "1130")
+        # Settle AR at the rate it was booked at (the invoice rate) so the
+        # base-currency receivable nets to zero; the difference between that and
+        # the payment-date rate is a realised FX gain/loss.
+        ar_rate = payment.customer_invoice.fx_rate if payment.customer_invoice else payment.fx_rate
+        lines = [
+            LineInput(account=cash, debit=payment.amount, currency=payment.currency, fx_rate=payment.fx_rate),
+            LineInput(account=ar, credit=payment.amount, currency=payment.currency, fx_rate=ar_rate, party=payment.party),
+        ]
+        if payment.currency_id != payment.company.base_currency_id:
+            fx = _fx_diff_line(payment.company,
+                               _q2(payment.amount * payment.fx_rate),
+                               _q2(payment.amount * ar_rate))
+            if fx:
+                lines.append(fx)
         entry = post_entry(EntryInput(
             company=payment.company, date=payment.date,
             memo=f"Customer receipt {payment.party.name}",
-            source_type="payment", source_id=payment.pk,
-            lines=[
-                LineInput(account=cash, debit=payment.amount, currency=payment.currency, fx_rate=payment.fx_rate),
-                LineInput(account=ar, credit=payment.amount, currency=payment.currency, fx_rate=payment.fx_rate, party=payment.party),
-            ],
+            source_type="payment", source_id=payment.pk, lines=lines,
         ))
         if payment.customer_invoice:
             inv = payment.customer_invoice
@@ -430,14 +455,21 @@ def register_payment(payment: Payment):
             inv.save(update_fields=["amount_paid"])
     else:
         ap = get_account(payment.company, "2110")
+        ap_rate = payment.supplier_bill.fx_rate if payment.supplier_bill else payment.fx_rate
+        lines = [
+            LineInput(account=ap, debit=payment.amount, currency=payment.currency, fx_rate=ap_rate, party=payment.party),
+            LineInput(account=cash, credit=payment.amount, currency=payment.currency, fx_rate=payment.fx_rate),
+        ]
+        if payment.currency_id != payment.company.base_currency_id:
+            fx = _fx_diff_line(payment.company,
+                               _q2(payment.amount * ap_rate),
+                               _q2(payment.amount * payment.fx_rate))
+            if fx:
+                lines.append(fx)
         entry = post_entry(EntryInput(
             company=payment.company, date=payment.date,
             memo=f"Supplier payment {payment.party.name}",
-            source_type="payment", source_id=payment.pk,
-            lines=[
-                LineInput(account=ap, debit=payment.amount, currency=payment.currency, fx_rate=payment.fx_rate, party=payment.party),
-                LineInput(account=cash, credit=payment.amount, currency=payment.currency, fx_rate=payment.fx_rate),
-            ],
+            source_type="payment", source_id=payment.pk, lines=lines,
         ))
         if payment.supplier_bill:
             bill = payment.supplier_bill

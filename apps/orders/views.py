@@ -87,6 +87,21 @@ class ReportViewSet(viewsets.ViewSet):
             return Response({"detail": "company query param required"}, status=400)
         return Response(ap_aging(self._company(request), request.query_params.get("as_of")))
 
+    @action(detail=False, methods=["post"], url_path="revalue-fx")
+    def revalue_fx(self, request):
+        from datetime import date as _date
+
+        from apps.core.models import Company
+
+        from .fx import revalue_open_documents
+
+        company = Company.objects.get(pk=request.data["company"])
+        as_of = request.data.get("as_of") or _date.today()
+        entry = revalue_open_documents(company, as_of)
+        if entry is None:
+            return Response({"detail": "nothing to revalue"})
+        return Response({"journal_entry": entry.id}, status=201)
+
 
 class CustomerInvoiceViewSet(CompanyScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = CustomerInvoice.objects.prefetch_related("lines").all()
