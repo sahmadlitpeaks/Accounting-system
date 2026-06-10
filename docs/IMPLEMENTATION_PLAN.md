@@ -54,8 +54,18 @@ apps/
         configured (`settings.FISCALIZATION`), sandbox otherwise.
       - **Next.js** UI (App Router, TypeScript): token login, company switcher,
         KPIs, P&L / Balance Sheet, invoices + PDF, **English/Arabic/Urdu RTL**.
-- [ ] **Future:** bank reconciliation, FX revaluation, opening-balance import,
-      fixed assets / payroll / manufacturing.
+- [x] **M13 — Maturity round:**
+      - **FX**: realised gain/loss on settlement (settle at booked rate, plug
+        4900/5900) and unrealised revaluation of open foreign-currency AR/AP.
+      - **Bank reconciliation** (`banking` app): statement CSV import,
+        auto-matching against approved payments, manual matching.
+      - **Opening balances**: balanced opening journal entry from CSV +
+        opening stock layers (no double-counted GL).
+      - **Tax return summary**: output/input/net tax + WHT per period, by code.
+      - **Stock valuation report**; **GitHub Actions CI** (backend tests +
+        frontend build).
+- [ ] **Future:** fixed assets / payroll / manufacturing; UI forms for
+      creating orders end-to-end.
 
 ## Cross-cutting rules
 

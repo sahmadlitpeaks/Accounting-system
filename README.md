@@ -52,6 +52,7 @@ Key API roots: `/api/accounting/`, `/api/masterdata/`, `/api/inventory/`,
 | `tax` | Rule-driven VAT / sales tax / withholding computation |
 | `compliance` | Fiscalization adapters — **UAE PINT AE/Peppol** & **Pakistan FBR clearance** (sandbox), async via Celery |
 | `accounts` | Users, **roles & company-scoped access**, maker-checker on payments, append-only **audit log** |
+| `banking` | Bank statement import (CSV) + **auto reconciliation** against payments |
 
 Reporting: **P&L**, **Balance Sheet** (`/api/accounting/reports/`), **AR/AP aging**
 (`/api/orders/reports/`). Period close & year-end close roll into retained
@@ -61,6 +62,14 @@ Demo login after `seed_demo`: `admin` / `admin12345`.
 Invoices render to **PDF with a statutory QR** at
 `/api/orders/customer-invoices/<id>/pdf/`. Fiscalization adapters call a real
 ASP/FBR endpoint when configured in `settings.FISCALIZATION`, sandbox otherwise.
+
+Maturity features: **realised + unrealised FX gain/loss**
+(`POST /api/orders/reports/revalue-fx/`), **tax return summary**
+(`/api/accounting/reports/tax-return/?company=&start=&end=`), **stock
+valuation** (`/api/inventory/stock-moves/valuation/`), opening balances
+(`python manage.py import_opening_balances balances.csv --company 1`), and
+bank reconciliation under `/api/banking/`. CI runs tests + frontend build on
+every push (`.github/workflows/ci.yml`).
 
 ### Frontend (Next.js)
 
