@@ -27,10 +27,12 @@ _COMMON = [
     ("1140", "Inventory", A, False, "1100"),
     ("1500", "Non-Current Assets", A, True, "1000"),
     ("1510", "Property, Plant & Equipment", A, False, "1500"),
+    ("1520", "Accumulated Depreciation", A, False, "1500"),  # contra-asset
     ("2000", "Liabilities", L, True, None),
     ("2100", "Current Liabilities", L, True, "2000"),
     ("2110", "Accounts Payable", L, False, "2100"),
     ("2140", "Goods Received Not Invoiced", L, False, "2100"),
+    ("2150", "Salaries Payable", L, False, "2100"),
     ("2500", "Non-Current Liabilities", L, True, "2000"),
     ("2510", "Long-Term Loans", L, False, "2500"),
     ("3000", "Equity / Capital", EQ, True, None),
@@ -48,6 +50,7 @@ _COMMON = [
     ("5220", "Rent", EXP, False, "5200"),
     ("5230", "Utilities", EXP, False, "5200"),
     ("5240", "Other Operating Expenses", EXP, False, "5200"),
+    ("5300", "Depreciation Expense", EXP, False, "5000"),
     ("5900", "Other Expense / FX Loss", EXP, False, "5000"),
 ]
 
